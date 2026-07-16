@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>三国字兵：架构重构版 v2.0</title>
+<title>三国字兵：备战席版 v3.0</title>
 <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: 'Microsoft YaHei', sans-serif; background: #1a252f; color: #ecf0f1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
@@ -22,13 +22,21 @@
     .unit-hero { color: #f1c40f; background: rgba(241, 196, 15, 0.3); border: 2px solid #f39c12; box-shadow: 0 0 5px #f39c12; }
     .unit-shovel { color: #95a5a6; background: rgba(149, 165, 166, 0.2); border: 1px solid #7f8c8d; }
     .selected { box-shadow: 0 0 0 3px #f1c40f; z-index: 20; transform: translate(-50%, -50%) scale(1.1); }
+    .demolish-mode #map-container { cursor: crosshair; }
+    .demolish-mode .unit { border-color: #e74c3c; }
     .hp-bar { position: absolute; top: 2px; left: 15%; width: 70%; height: 3px; background: #c0392b; border-radius: 2px; }
     .hp-fill { height: 100%; background: #2ecc71; border-radius: 2px; }
     .stunned { animation: shake 0.5s infinite; }
+    
     #bottom-bar { background: #2c3e50; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+    #bench-area { display: flex; gap: 6px; justify-content: space-between; padding: 4px; background: #22313f; border-radius: 4px; border: 1px solid #2c3e50; }
+    .bench-slot { flex: 1; aspect-ratio: 1; background: #1a252f; border: 2px dashed #34495e; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; position: relative; }
+    .bench-slot.empty { border-color: #22313f; }
+    
     #recruit-area { display: flex; gap: 6px; justify-content: space-between; }
     .slot { flex: 1; aspect-ratio: 1; background: #1a252f; border: 2px dashed #4a6278; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; position: relative; }
     .slot.empty { border-color: #2c3e50; }
+    
     #action-area { display: flex; gap: 10px; }
     button { color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; }
     #recruit-btn { flex: 3; padding: 12px; background: #e67e22; }
@@ -36,8 +44,8 @@
     #recruit-btn:disabled { background: #95a5a6; }
     #next-wave-btn { flex: 2; padding: 12px; background: #c0392b; }
     #next-wave-btn:active { background: #e74c3c; }
-    #open-map-btn { flex: 1; padding: 12px; background: #27ae60; }
-    #open-map-btn:disabled { background: #95a5a6; }
+    #next-wave-btn:disabled { background: #95a5a6; }
+    
     #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
     #game-over h1 { color: #e74c3c; font-size: 32px; margin-bottom: 10px; }
     @keyframes shake { 0% { transform: translate(-50%, -50%) translateX(0); } 25% { transform: translate(-50%, -50%) translateX(-3px); } 75% { transform: translate(-50%, -50%) translateX(3px); } 100% { transform: translate(-50%, -50%) translateX(0); } }
@@ -49,10 +57,10 @@
     <div style="display:flex; flex-wrap:wrap; width:100%;">
         <div class="stat-box">血: <span id="castle-hp">100</span></div>
         <div class="stat-box">金: <span id="gold">50</span></div>
-        <div class="stat-box">波: <span id="wave-num">0</span></div>
-        <div class="stat-box">铲: <span id="shovel-count">0</span>/3</div>
+        <div class="stat-box">图: <span id="map-name">黄巾</span></div>
+        <div class="stat-box">波: <span id="wave-num">0</span>/<span id="max-wave">5</span></div>
     </div>
-    <div id="info-ticker">架构重构版 v2.0。点击招募，开始布阵。</div>
+    <div id="info-ticker">v3.0：备战席上线。单字先存备战席，拼好再上阵！</div>
 </div>
 
 <div id="map-container">
@@ -64,25 +72,46 @@
 </div>
 
 <div id="bottom-bar">
-    <div id="recruit-area"></div>
+    <!-- 备战席 -->
+    <div id="bench-area">
+        <div class="bench-slot empty" data-index="0"></div>
+        <div class="bench-slot empty" data-index="1"></div>
+        <div class="bench-slot empty" data-index="2"></div>
+        <div class="bench-slot empty" data-index="3"></div>
+    </div>
+    <!-- 招募区 -->
+    <div id="recruit-area">
+        <div class="slot empty" data-index="0"></div>
+        <div class="slot empty" data-index="1"></div>
+        <div class="slot empty" data-index="2"></div>
+        <div class="slot empty" data-index="3"></div>
+        <div class="slot empty" data-index="4"></div>
+        <div class="slot empty" data-index="5"></div>
+    </div>
+    <!-- 操作区 -->
     <div id="action-area">
         <button id="recruit-btn">招募 (20金)</button>
         <button id="next-wave-btn">出阵迎敌</button>
-        <button id="open-map-btn" disabled>开图</button>
     </div>
 </div>
 
 <script>
-// ================= 1. 核心基础架构 =================
+// ================= 1. 全局配置数据 =================
+const Config = {
+    recruitBaseCost: 20,
+    recruitCostIncrease: 2,
+    wavesPerMap: 5,
+    shovelRefundRate: 0.6,
+    typeWeights: { basic: 0.60, surname: 0.20, name: 0.15, shovel: 0.05 }
+};
 
-// 事件总线：解耦系统间通信
+// ================= 2. 核心基础架构 =================
 const EventBus = {
     events: {},
     on(event, callback) { (this.events[event] = this.events[event] || []).push(callback); },
     emit(event, data) { (this.events[event] || []).forEach(cb => cb(data)); }
 };
 
-// 空间网格系统：优化索敌性能 O(n²) -> O(n)
 class SpatialGrid {
     constructor(cellSize = 20) { this.cellSize = cellSize; this.grid = new Map(); }
     clear() { this.grid.clear(); }
@@ -92,7 +121,6 @@ class SpatialGrid {
         if (!this.grid.has(key)) this.grid.set(key, []);
         this.grid.get(key).push(entity);
     }
-    // 查找某点周围 3x3 范围内的实体
     queryNearby(x, y, range) {
         const results = [];
         const checks = Math.ceil(range / this.cellSize);
@@ -108,8 +136,7 @@ class SpatialGrid {
     }
 }
 
-// ================= 2. 实体类设计 (OOP) =================
-
+// ================= 3. 实体类设计 =================
 class Entity {
     constructor(char, x, y) {
         this.id = Math.random().toString(36).substr(2, 9);
@@ -119,38 +146,36 @@ class Entity {
         if (!this.el) {
             this.el = document.createElement('div');
             this.el.className = 'unit';
+            this.el.dataset.id = this.id;
             document.getElementById('map-container').appendChild(this.el);
+            this.el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                Game.handleEntityClick(this);
+            });
         }
         this.el.style.left = this.x + '%';
         this.el.style.top = this.y + '%';
         this.el.innerText = this.char;
     }
-    destroy() { if (this.el) this.el.remove(); }
+    destroy() { if (this.el) this.el.remove(); this.el = null; }
 }
 
 class Enemy extends Entity {
     constructor(char, x, y, hp, speed, path) {
         super(char, x, y); this.hp = hp; this.maxHp = hp; this.speed = speed;
         this.path = path; this.pathIndex = 0; this.stunTimer = 0; this.bounty = 10;
-        this.el = null; this.hpFillEl = null;
+        this.hpFillEl = null;
     }
     update(dt) {
-        if (this.stunTimer > 0) {
-            this.stunTimer -= dt;
-            this.el.classList.add('stunned');
-            return;
-        } this.el.classList.remove('stunned');
-
+        if (this.stunTimer > 0) { this.stunTimer -= dt; this.el.classList.add('stunned'); return; }
+        this.el.classList.remove('stunned');
         if (this.pathIndex < this.path.length - 1) {
             const target = this.path[this.pathIndex + 1];
             const dx = target.x - this.x, dy = target.y - this.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
             if (dist < this.speed * 2) { this.pathIndex++; }
             else { this.x += (dx / dist) * this.speed; this.y += (dy / dist) * this.speed; }
-        } else {
-            EventBus.emit('enemy_reach_castle', { enemy: this });
-            this.hp = 0; 
-        }
+        } else { EventBus.emit('enemy_reach_castle', { enemy: this }); this.hp = 0; }
     }
     takeDamage(dmg) {
         this.hp -= dmg;
@@ -172,155 +197,309 @@ class Unit extends Entity {
     constructor(char, type, x, y, stats) {
         super(char, x, y); this.type = type; this.dmg = stats.dmg || 0;
         this.range = stats.range || 0; this.atkSpeed = stats.atkSpeed || 9999;
-        this.cd = 0; this.stats = stats; this.target = null;
+        this.cd = 0; this.stats = stats; this.value = stats.value || 10; // 记录价值用于铲子回收
     }
     update(dt, grid) {
-        if (this.dmg === 0) return; // 姓氏名字不攻击
+        if (this.dmg === 0) return;
         this.cd -= dt;
         if (this.cd <= 0) {
-            // 空间网格索敌
             const nearbyEnemies = grid.queryNearby(this.x, this.y, this.range).filter(e => e instanceof Enemy);
-            if (nearbyEnemies.length > 0) {
-                this.attack(nearbyEnemies);
-                this.cd = this.atkSpeed;
-            }
+            if (nearbyEnemies.length > 0) { this.attack(nearbyEnemies); this.cd = this.atkSpeed; }
         }
     }
-    attack(enemies) {
-        // 基础攻击逻辑，由子类或特殊兵种覆盖
-        const target = enemies[0]; // 默认打最近
-        target.takeDamage(this.dmg);
-        this.playAtkAnim();
-    }
+    attack(enemies) { enemies[0].takeDamage(this.dmg); this.playAtkAnim(); }
     playAtkAnim() {
         this.el.style.transform = 'translate(-50%, -50%) scale(1.3)';
         setTimeout(() => { if(this.el) this.el.style.transform = 'translate(-50%, -50%) scale(1)'; }, 100);
     }
-    render() {
-        super.render();
-        this.el.className = `unit unit-${this.type}`;
-    }
+    render() { super.render(); this.el.className = `unit unit-${this.type}`; }
 }
 
-// ================= 3. 特殊兵种与武将 (多态) =================
-
-class BowUnit extends Unit { attack(enemies) { enemies[0].takeDamage(this.dmg); super.playAtkAnim(); } } // 弓：单体
-class BladeUnit extends Unit { attack(enemies) { enemies.forEach(e => e.takeDamage(this.dmg)); super.playAtkAnim(); } } // 刀：AOE
-class SpearUnit extends Unit { // 枪：穿透(打最近的2个)
-    attack(enemies) {
-        enemies.slice(0, 2).forEach(e => e.takeDamage(this.dmg));
-        super.playAtkAnim();
-    }
-}
+class BowUnit extends Unit { attack(enemies) { enemies[0].takeDamage(this.dmg); super.playAtkAnim(); } }
+class BladeUnit extends Unit { attack(enemies) { enemies.forEach(e => e.takeDamage(this.dmg)); super.playAtkAnim(); } }
+class SpearUnit extends Unit { attack(enemies) { enemies.slice(0, 2).forEach(e => e.takeDamage(this.dmg)); super.playAtkAnim(); } }
 
 class HeroUnit extends Unit {
-    constructor(char, x, y, stats) { super(char, 'hero', x, y, stats); this.skillCd = 5000; }
-    update(dt, grid) {
-        super.update(dt, grid);
-        // 武将主动技能逻辑占位（此处可触发关羽横扫等）
-    }
+    constructor(char, x, y, stats) { super(char, 'hero', x, y, stats); }
     attack(enemies) {
-        // 张飞：震击眩晕
-        if (this.char === '张飞') {
-            enemies.forEach(e => { e.takeDamage(this.dmg); e.stunTimer = 1500; });
-        } else {
-            enemies[0].takeDamage(this.dmg);
-        }
+        if (this.char === '张飞') { enemies.forEach(e => { e.takeDamage(this.dmg); e.stunTimer = 1500; }); }
+        else { enemies[0].takeDamage(this.dmg); }
         super.playAtkAnim();
     }
 }
 
 // ================= 4. 游戏管理器 =================
-
 const Game = {
-    state: { gold: 50, castleHp: 100, shovels: 0, mapLevel: 1, wave: 0, recruitCost: 20, isWaveActive: false },
-    units: [], enemies: [], grid: new SpatialGrid(),
+    state: { gold: 50, castleHp: 100, mapLevel: 1, wave: 0, recruitCost: 20, isWaveActive: false, demolishMode: false },
+    units: [], enemies: [], bench: [null, null, null, null], grid: new SpatialGrid(),
     mapData: null, selectedEntity: null, isGameOver: false, lastTime: 0,
-    
+    intervals: { spawn: null, checkEnd: null },
+
     MAPS: [
         { name: "黄巾", path: [{x: 0, y: 30}, {x: 70, y: 30}, {x: 70, y: 70}, {x: 0, y: 70}] },
-        { name: "虎牢", path: [{x: 0, y: 20}, {x: 40, y: 20}, {x: 40, y: 80}, {x: 100, y: 80}] }
+        { name: "虎牢", path: [{x: 0, y: 20}, {x: 40, y: 20}, {x: 40, y: 80}, {x: 100, y: 80}] },
+        { name: "赤壁", path: [{x: 0, y: 50}, {x: 30, y: 50}, {x: 30, y: 20}, {x: 70, y: 20}, {x: 70, y: 80}, {x: 100, y: 80}] }
     ],
     UPGRADE_TREE: { '弓': '弩', '弩': '射', '射': '神射', '刀': '剑', '剑': '斩', '斩': '绝斩', '枪': '矛', '矛': '刺', '刺': '贯', '骑': '驱', '驱': '驰', '驰': '铁骑' },
     UNIT_STATS: {
-        '弓': {dmg:10, range:30, atkSpeed:1000, class: BowUnit}, '弩': {dmg:25, range:32, atkSpeed:900, class: BowUnit}, '射': {dmg:60, range:35, atkSpeed:800, class: BowUnit}, '神射': {dmg:150, range:40, atkSpeed:700, class: BowUnit},
-        '刀': {dmg:8, range:15, atkSpeed:800, class: BladeUnit}, '剑': {dmg:20, range:16, atkSpeed:750, class: BladeUnit}, '斩': {dmg:45, range:18, atkSpeed:700, class: BladeUnit}, '绝斩': {dmg:100, range:20, atkSpeed:600, class: BladeUnit},
-        '枪': {dmg:15, range:20, atkSpeed:1200, class: SpearUnit}, '矛': {dmg:35, range:22, atkSpeed:1100, class: SpearUnit}, '刺': {dmg:80, range:24, atkSpeed:1000, class: SpearUnit}, '贯': {dmg:160, range:26, atkSpeed:900, class: SpearUnit},
-        '骑': {dmg:20, range:15, atkSpeed:600, class: Unit}, '驱': {dmg:45, range:16, atkSpeed:500, class: Unit}, '驰': {dmg:90, range:18, atkSpeed:400, class: Unit}, '铁骑': {dmg:200, range:20, atkSpeed:300, class: Unit}
+        '弓': {dmg:10, range:30, atkSpeed:1000, class: BowUnit, value: 10}, '弩': {dmg:25, range:32, atkSpeed:900, class: BowUnit, value: 20}, '射': {dmg:60, range:35, atkSpeed:800, class: BowUnit, value: 40}, '神射': {dmg:150, range:40, atkSpeed:700, class: BowUnit, value: 80},
+        '刀': {dmg:8, range:15, atkSpeed:800, class: BladeUnit, value: 10}, '剑': {dmg:20, range:16, atkSpeed:750, class: BladeUnit, value: 20}, '斩': {dmg:45, range:18, atkSpeed:700, class: BladeUnit, value: 40}, '绝斩': {dmg:100, range:20, atkSpeed:600, class: BladeUnit, value: 80},
+        '枪': {dmg:15, range:20, atkSpeed:1200, class: SpearUnit, value: 10}, '矛': {dmg:35, range:22, atkSpeed:1100, class: SpearUnit, value: 20}, '刺': {dmg:80, range:24, atkSpeed:1000, class: SpearUnit, value: 40}, '贯': {dmg:160, range:26, atkSpeed:900, class: SpearUnit, value: 80},
+        '骑': {dmg:20, range:15, atkSpeed:600, class: Unit, value: 10}, '驱': {dmg:45, range:16, atkSpeed:500, class: Unit, value: 20}, '驰': {dmg:90, range:18, atkSpeed:400, class: Unit, value: 40}, '铁骑': {dmg:200, range:20, atkSpeed:300, class: Unit, value: 80}
     },
     HERO_DB: {
-        '关羽': { skill: '横扫', dmg: 60, range: 35, atkSpeed: 1200 },
-        '张飞': { skill: '震击', dmg: 40, range: 25, atkSpeed: 1000 },
-        '赵云': { skill: '连击', dmg: 30, range: 30, atkSpeed: 400 },
-        '诸葛亮':{ skill: '八阵', dmg: 10, range: 50, atkSpeed: 1500 }
+        '关羽': { skill: '横扫', dmg: 60, range: 35, atkSpeed: 1200, value: 50 },
+        '张飞': { skill: '震击', dmg: 40, range: 25, atkSpeed: 1000, value: 50 },
+        '赵云': { skill: '连击', dmg: 30, range: 30, atkSpeed: 400, value: 50 },
+        '诸葛亮':{ skill: '八阵', dmg: 10, range: 50, atkSpeed: 1500, value: 50 }
     },
 
     init() {
-        // 绑定事件
         EventBus.on('enemy_die', (data) => this.onEnemyDie(data.enemy));
         EventBus.on('enemy_reach_castle', (data) => this.onEnemyReachCastle(data.enemy));
         
         document.getElementById('recruit-btn').addEventListener('click', () => this.recruit());
         document.getElementById('next-wave-btn').addEventListener('click', () => this.startWave());
-        document.getElementById('open-map-btn').addEventListener('click', () => this.openNewMap());
         document.getElementById('restart-btn').addEventListener('click', () => location.reload());
         
-        this.initRecruitSlots();
+        document.getElementById('map-container').addEventListener('click', (e) => this.handleMapClick(e));
+        
         this.drawMap();
         this.updateUI();
         this.gameLoop(0);
     },
 
-    // --- 核心循环 ---
     gameLoop(timestamp) {
         if (this.isGameOver) return;
         const dt = timestamp - this.lastTime;
         this.lastTime = timestamp;
 
-        // 1. 重建空间网格
         this.grid.clear();
         this.enemies.forEach(e => this.grid.insert(e));
 
-        // 2. 更新逻辑
         this.enemies.forEach(e => e.update(dt));
         this.units.forEach(u => u.update(dt, this.grid));
 
-        // 3. 清理死亡实体
-        this.enemies = this.enemies.filter(e => {
-            if (e.hp <= 0) { e.destroy(); return false; }
-            return true;
-        });
-
-        // 4. 渲染
+        this.enemies = this.enemies.filter(e => { if (e.hp <= 0) { e.destroy(); return false; } return true; });
         this.enemies.forEach(e => e.render());
         this.units.forEach(u => u.render());
 
         requestAnimationFrame((t) => this.gameLoop(t));
     },
 
-    // --- 招募与经济 ---
+    // --- 核心交互逻辑 ---
+    selectEntity(srcType, el, data) {
+        this.deselectEntity();
+        this.selectedEntity = { srcType, el, data };
+        if (el) el.classList.add('selected');
+    },
+    deselectEntity() {
+        if (this.selectedEntity && this.selectedEntity.el && document.body.contains(this.selectedEntity.el)) {
+            this.selectedEntity.el.classList.remove('selected');
+        }
+        this.selectedEntity = null;
+    },
+    handleEntityClick(entity) {
+        if (this.state.demolishMode) {
+            if (entity instanceof Unit) this.demolishUnit(entity);
+            return;
+        }
+        if (this.selectedEntity) {
+            this.tryCombine(this.selectedEntity, entity);
+        } else {
+            if (entity instanceof Unit) {
+                this.selectEntity('map', entity.el, entity);
+            }
+        }
+    },
+    handleMapClick(e) {
+        if (this.isGameOver) return;
+        const target = e.target;
+        
+        if (this.state.demolishMode) {
+            this.toggleDemolishMode(false);
+            return;
+        }
+
+        if (target.classList.contains('grid-cell') && this.selectedEntity) {
+            const x = parseFloat(target.dataset.x);
+            const y = parseFloat(target.dataset.y);
+            
+            if (this.selectedEntity.srcType === 'recruit' || this.selectedEntity.srcType === 'bench') {
+                this.deployUnit(this.selectedEntity.data.char, this.selectedEntity.data.type, x, y, this.selectedEntity.data.value);
+                this.clearSourceSlot();
+                this.deselectEntity();
+            }
+        } else if (target.id === 'map-container' || target.classList.contains('path-cell')) {
+            this.deselectEntity();
+        }
+    },
+
+    // --- 招募与备战席 ---
     recruit() {
         if (this.state.gold < this.state.recruitCost) return this.log("金币不足！");
         this.state.gold -= this.state.recruitCost;
-        this.state.recruitCost += 2; // 每次招募+2金币
+        this.state.recruitCost += Config.recruitCostIncrease;
         this.updateUI();
 
         const TYPES = { BASIC: ['弓', '刀', '枪', '骑'], SURNAME: ['关', '张', '赵', '马', '黄', '吕', '诸'], NAME: ['羽', '飞', '云', '超', '忠', '布', '亮'] };
         
-        document.querySelectorAll('.slot').forEach(s => { s.innerHTML = ''; s.classList.add('empty'); s.onclick = null; });
+        document.querySelectorAll('.slot').forEach(s => { s.innerHTML = ''; s.classList.add('empty'); });
 
         for (let i = 0; i < 6; i++) {
             const rand = Math.random();
-            let char, type;
-            if (rand < 0.60) { char = TYPES.BASIC[Math.floor(Math.random() * 4)]; type = 'basic'; }
-            else if (rand < 0.80) { char = TYPES.SURNAME[Math.floor(Math.random() * 7)]; type = 'surname'; }
-            else if (rand < 0.95) { char = TYPES.NAME[Math.floor(Math.random() * 7)]; type = 'name'; }
+            let char, type, value = 10;
+            if (rand < Config.typeWeights.basic) { char = TYPES.BASIC[Math.floor(Math.random() * 4)]; type = 'basic'; }
+            else if (rand < Config.typeWeights.basic + Config.typeWeights.surname) { char = TYPES.SURNAME[Math.floor(Math.random() * 7)]; type = 'surname'; }
+            else if (rand < Config.typeWeights.basic + Config.typeWeights.surname + Config.typeWeights.name) { char = TYPES.NAME[Math.floor(Math.random() * 7)]; type = 'name'; }
             else { char = '铲'; type = 'shovel'; }
-            this.createSlotChar(i, char, type);
+
+            const slot = document.querySelector(`.slot[data-index="${i}"]`);
+            slot.classList.remove('empty');
+            const el = document.createElement('div');
+            el.className = `unit unit-${type}`;
+            el.style.cssText = 'position:relative;transform:none;width:100%;height:100%;';
+            el.innerText = char;
+            
+            if (char === '铲') {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.toggleDemolishMode(true);
+                    slot.innerHTML = ''; slot.classList.add('empty');
+                });
+            } else {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.selectEntity('recruit', el, { char, type, value, index: i });
+                });
+            }
+            slot.appendChild(el);
         }
     },
 
-    // --- 波次系统 ---
+    toggleDemolishMode(active) {
+        this.state.demolishMode = active;
+        document.body.classList.toggle('demolish-mode', active);
+        if (active) this.log("已激活铲子，点击要拆除的单位返还金币。");
+    },
+    demolishUnit(unit) {
+        const refund = Math.floor(unit.value * Config.shovelRefundRate);
+        this.state.gold += refund;
+        this.log(`拆除 ${unit.char}，返还 ${refund} 金币。`);
+        unit.destroy();
+        this.units = this.units.filter(u => u.id !== unit.id);
+        this.toggleDemolishMode(false);
+        this.updateUI();
+    },
+
+    moveToBench(benchIndex) {
+        if (!this.selectedEntity) return;
+        if (this.bench[benchIndex]) return this.log("备战席已满！");
+        
+        const data = this.selectedEntity.data;
+        this.bench[benchIndex] = { char: data.char, type: data.type, value: data.value };
+        this.clearSourceSlot();
+        this.renderBench();
+        this.deselectEntity();
+    },
+    renderBench() {
+        document.querySelectorAll('.bench-slot').forEach((s, i) => {
+            s.innerHTML = ''; s.classList.add('empty'); s.onclick = null;
+            if (this.bench[i]) {
+                s.classList.remove('empty');
+                const el = document.createElement('div');
+                el.className = `unit unit-${this.bench[i].type}`;
+                el.style.cssText = 'position:relative;transform:none;width:100%;height:100%;';
+                el.innerText = this.bench[i].char;
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.selectEntity('bench', el, { ...this.bench[i], index: i });
+                });
+                s.appendChild(el);
+            } else {
+                // 点击空备战席，如果选中了东西，就放进去
+                s.onclick = () => this.moveToBench(i);
+            }
+        });
+    },
+    clearSourceSlot() {
+        const src = this.selectedEntity.srcType;
+        const idx = this.selectedEntity.data.index;
+        if (src === 'recruit') {
+            const slot = document.querySelector(`.slot[data-index="${idx}"]`);
+            slot.innerHTML = ''; slot.classList.add('empty');
+        } else if (src === 'bench') {
+            this.bench[idx] = null;
+            this.renderBench();
+        } else if (src === 'map') {
+            const unit = this.selectedEntity.data;
+            unit.destroy();
+            this.units = this.units.filter(u => u.id !== unit.id);
+        }
+    },
+
+    // --- 部署与合成 ---
+    deployUnit(char, type, x, y, value = 10) {
+        let unit;
+        if (type === 'hero') {
+            unit = new HeroUnit(char, x, y, {...this.HERO_DB[char], value});
+        } else if (this.UNIT_STATS[char]) {
+            const stats = this.UNIT_STATS[char];
+            unit = new stats.class(char, 'basic', x, y, {...stats, value});
+        } else {
+            unit = new Unit(char, type, x, y, {dmg:0, range:0, atkSpeed:9999, value});
+        }
+        unit.render();
+        this.units.push(unit);
+    },
+
+    tryCombine(srcEntity, targetUnit) {
+        const char1 = srcEntity.data.char;
+        const char2 = targetUnit.char;
+        const combinedStr = char1 + char2;
+        const reverseStr = char2 + char1;
+        
+        let isSuccess = false;
+        let newChar = '';
+        let newType = '';
+        let newValue = 0;
+
+        if (this.HERO_DB[combinedStr] || this.HERO_DB[reverseStr]) {
+            newChar = this.HERO_DB[combinedStr] ? combinedStr : reverseStr;
+            newType = 'hero';
+            newValue = srcEntity.data.value + targetUnit.value;
+            this.log(`✨ ${newChar} 降临战场！`, true);
+            isSuccess = true;
+        } else if (char1 === char2 && this.UPGRADE_TREE[char1]) {
+            newChar = this.UPGRADE_TREE[char1];
+            newType = 'basic';
+            newValue = srcEntity.data.value + targetUnit.value;
+            this.log(`${char1} 升级为 ${newChar}！`);
+            isSuccess = true;
+        }
+
+        if (isSuccess) {
+            // 销毁源和目标
+            this.clearSourceSlot(); // 清除招募区/备战席/地图上的源
+            targetUnit.destroy();
+            this.units = this.units.filter(u => u.id !== targetUnit.id);
+            this.deselectEntity();
+
+            // 在目标位置生成新单位
+            this.deployUnit(newChar, newType, targetUnit.x, targetUnit.y, newValue);
+        } else {
+            this.log("无法组成武将或升阶！");
+            targetUnit.el.style.animation = 'shake 0.3s';
+            srcEntity.el.style.animation = 'shake 0.3s';
+            setTimeout(() => { 
+                if(targetUnit.el) targetUnit.el.style.animation = ''; 
+                if(srcEntity.el) srcEntity.el.style.animation = ''; 
+            }, 300);
+            this.deselectEntity();
+        }
+    },
+
+    // --- 波次与关卡推进 ---
     startWave() {
         if (this.state.isWaveActive) return;
         this.state.isWaveActive = true;
@@ -329,13 +508,12 @@ const Game = {
         
         const count = 5 + this.state.wave * 2;
         let spawned = 0;
-        const spawnInterval = setInterval(() => {
+        this.intervals.spawn = setInterval(() => {
             if (spawned >= count) {
-                clearInterval(spawnInterval);
-                // 波次结束检测
-                const checkEnd = setInterval(() => {
+                clearInterval(this.intervals.spawn);
+                this.intervals.checkEnd = setInterval(() => {
                     if (this.enemies.length === 0) {
-                        clearInterval(checkEnd);
+                        clearInterval(this.intervals.checkEnd);
                         this.endWave();
                     }
                 }, 1000);
@@ -345,19 +523,34 @@ const Game = {
             spawned++;
         }, 1500);
     },
-    
     endWave() {
         this.state.isWaveActive = false;
-        this.state.gold += 20; // 波次奖励
-        this.state.recruitCost = 20; // 重置招募费
+        this.state.gold += 20;
+        this.state.recruitCost = Config.recruitBaseCost;
         this.log(`第 ${this.state.wave} 波清理完毕！获得 20 金币奖励。`);
         this.updateUI();
-    },
 
+        // 过关判定
+        if (this.state.wave % Config.wavesPerMap === 0) {
+            setTimeout(() => this.nextMap(), 2000);
+        }
+    },
+    nextMap() {
+        clearInterval(this.intervals.spawn);
+        clearInterval(this.intervals.checkEnd);
+        this.state.mapLevel++;
+        this.state.wave = 0;
+        this.state.castleHp = 100;
+        // 保留武将，清空敌人
+        this.enemies.forEach(e => e.destroy()); this.enemies = [];
+        this.drawMap();
+        this.updateUI();
+        this.log(`大军推进至：${this.mapData.name}！阵容已保留。`, true);
+    },
     spawnEnemy() {
         const path = this.mapData.path;
         const isZhu = Math.random() < 0.2 + (this.state.wave * 0.02);
-        const hp = (isZhu ? 100 : 50) * Math.pow(1.2, this.state.wave - 1);
+        const hp = (isZhu ? 100 : 50) * Math.pow(1.2, this.state.wave - 1) * Math.pow(1.5, this.state.mapLevel - 1);
         const speed = isZhu ? 0.3 : 0.6;
         const char = isZhu ? '卒' : '兵';
         const enemy = new Enemy(char, path[0].x, path[0].y, hp, speed, path);
@@ -365,96 +558,35 @@ const Game = {
         this.enemies.push(enemy);
     },
 
-    // --- 事件回调 ---
-    onEnemyDie(enemy) {
-        this.state.gold += enemy.bounty;
-        this.log(`击杀${enemy.char}，获得 ${enemy.bounty} 金币！`);
-        this.updateUI();
-    },
+    // --- 事件与UI ---
+    onEnemyDie(enemy) { this.state.gold += enemy.bounty; this.updateUI(); },
     onEnemyReachCastle(enemy) {
         this.state.castleHp -= 10;
-        this.log(`主城被攻击！扣除 10 血量。`);
         if (this.state.castleHp <= 0) this.gameOver();
         this.updateUI();
     },
-
-    // --- 部署与合成 ---
-    deployUnit(char, type, x, y) {
-        let unit;
-        if (type === 'hero') {
-            unit = new HeroUnit(char, x, y, this.HERO_DB[char]);
-        } else if (this.UNIT_STATS[char]) {
-            const stats = this.UNIT_STATS[char];
-            // 根据数据配置实例化对应类
-            unit = new stats.class(char, 'basic', x, y, stats);
-        } else {
-            unit = new Unit(char, type, x, y, {dmg:0, range:0, atkSpeed:9999}); // 姓名字
-        }
-        unit.render();
-        this.units.push(unit);
-    },
-
-    tryCombine(u1, u2) {
-        const char1 = u1.char, char2 = u2.char;
-        const combinedStr = char1 + char2;
-        const reverseStr = char2 + char1;
-        
-        if (this.HERO_DB[combinedStr] || this.HERO_DB[reverseStr]) {
-            const heroName = this.HERO_DB[combinedStr] ? combinedStr : reverseStr;
-            this.log(`✨ ${heroName} 降临战场！`, true);
-            u1.destroy(); this.units = this.units.filter(u => u.id !== u1.id);
-            u2.destroy(); this.units = this.units.filter(u => u.id !== u2.id);
-            this.deployUnit(heroName, 'hero', u2.x, u2.y);
-            return true;
-        }
-        if (char1 === char2 && this.UPGRADE_TREE[char1]) {
-            const newChar = this.UPGRADE_TREE[char1];
-            this.log(`${char1} 升级为 ${newChar}！`);
-            u1.destroy(); this.units = this.units.filter(u => u.id !== u1.id);
-            u2.destroy(); this.units = this.units.filter(u => u.id !== u2.id);
-            this.deployUnit(newChar, 'basic', u2.x, u2.y);
-            return true;
-        }
-        this.log("无法组成武将或升阶！");
-        return false;
-    },
-
-    // --- UI 与交互 (略缩，与v1类似) ---
-    drawMap() { /* 代码同 v1.2，为节省篇幅省略 */ 
+    drawMap() {
         const c = document.getElementById('map-container');
         Array.from(c.children).forEach(child => { if (child.id !== 'game-over') child.remove(); });
         this.mapData = this.MAPS[(this.state.mapLevel - 1) % this.MAPS.length];
         const path = this.mapData.path;
         path.forEach((p, i) => { if (i < path.length - 1) { const p2 = path[i+1]; const line = document.createElement('div'); line.className = 'path-cell'; line.style.left = p.x + '%'; line.style.top = p.y + '%'; if (p.x === p2.x) { line.style.width = '10px'; line.style.height = Math.abs(p2.y - p.y) + '%'; } else { line.style.height = '10px'; line.style.width = Math.abs(p2.x - p.x) + '%'; } c.appendChild(line); } });
-        for(let y=15; y<=85; y+=14) { for(let x=10; x<=90; x+=14) { let isPath=false; for(let i=0;i<path.length-1;i++){const p1=path[i],p2=path[i+1];if(p1.y===p2.y&&Math.abs(y-p1.y)<10&&x>=Math.min(p1.x,p2.x)-5&&x<=Math.max(p1.x,p2.x)+5)isPath=true;if(p1.x===p2.x&&Math.abs(x-p1.x)<10&&y>=Math.min(p1.y,p2.y)-5&&y<=Math.max(p1.y,p2.y)+5)isPath=true;} if(!isPath){const div=document.createElement('div');div.className='grid-cell';div.style.left=x+'%';div.style.top=y+'%';div.addEventListener('click',()=>this.handleMapClick(x,y,div));c.appendChild(div);}} }
+        for(let y=15; y<=85; y+=14) { for(let x=10; x<=90; x+=14) { let isPath=false; for(let i=0;i<path.length-1;i++){const p1=path[i],p2=path[i+1];if(p1.y===p2.y&&Math.abs(y-p1.y)<10&&x>=Math.min(p1.x,p2.x)-5&&x<=Math.max(p1.x,p2.x)+5)isPath=true;if(p1.x===p2.x&&Math.abs(x-p1.x)<10&&y>=Math.min(p1.y,p2.y)-5&&y<=Math.max(p1.y,p2.y)+5)isPath=true;} if(!isPath){const div=document.createElement('div');div.className='grid-cell';div.style.left=x+'%';div.style.top=y+'%';div.dataset.x=x;div.dataset.y=y;c.appendChild(div);}} }
         const endP = path[path.length-1]; const endDiv = document.createElement('div'); endDiv.style.cssText = `position:absolute;left:${endP.x}%;top:${endP.y}%;width:14%;height:14%;background:#c0392b;display:flex;align-items:center;justify-content:center;border-radius:4px;transform:translate(-50%,-50%);z-index:5;font-weight:bold;`; endDiv.innerText='城'; c.appendChild(endDiv);
     },
-    initRecruitSlots() { const area = document.getElementById('recruit-area'); for(let i=0; i<6; i++) { const s = document.createElement('div'); s.className = 'slot empty'; s.dataset.index = i; area.appendChild(s); } },
-    createSlotChar(i, char, type) { /* 代码同 v1.2 */ 
-        const slot = document.querySelector(`.slot[data-index="${i}"]`); slot.classList.remove('empty'); const el = document.createElement('div'); el.className = `unit unit-${type}`; el.style.position = 'relative'; el.style.transform = 'none'; el.style.width = '100%'; el.style.height = '100%'; el.innerText = char; if (char === '铲') { el.addEventListener('click', (e) => { e.stopPropagation(); this.state.shovels++; slot.innerHTML = ''; slot.classList.add('empty'); this.log("获得一把铲子！"); this.updateUI(); }); } else { el.addEventListener('click', (e) => { e.stopPropagation(); this.selectEntity('slot', el, { char, type, index: i }); }); } slot.appendChild(el);
-    },
-    selectEntity(srcType, el, data) { this.deselectEntity(); if(this.selectedEntity && this.selectedEntity.el === el) return this.deselectEntity(); this.selectedEntity = { srcType, el, data }; el.classList.add('selected'); },
-    deselectEntity() { if (this.selectedEntity && this.selectedEntity.el) this.selectedEntity.el.classList.remove('selected'); this.selectedEntity = null; },
-    handleMapClick(x, y, cellEl) { if(!this.selectedEntity) return; if(this.selectedEntity.srcType === 'slot') { this.deployUnit(this.selectedEntity.data.char, this.selectedEntity.data.type, x, y); const slot = document.querySelector(`.slot[data-index="${this.selectedEntity.data.index}"]`); slot.innerHTML=''; slot.classList.add('empty'); this.deselectEntity(); } },
-    handleUnitClick(unit) { if(this.selectedEntity && this.selectedEntity.srcType === 'map') { if(this.tryCombine(this.selectedEntity.data, unit)) { this.deselectEntity(); } else { this.deselectEntity(); } } else { this.selectEntity('map', unit.el, unit); } },
     log(msg, isHero=false) { const t = document.getElementById('info-ticker'); t.innerText = msg; t.style.color = isHero ? '#f1c40f' : '#aaa'; },
-    updateUI() { document.getElementById('gold').innerText = this.state.gold; document.getElementById('castle-hp').innerText = Math.max(0, this.state.castleHp); document.getElementById('wave-num').innerText = this.state.wave; document.getElementById('shovel-count').innerText = this.state.shovels; document.getElementById('recruit-btn').innerText = `招募 (${this.state.recruitCost}金)`; const ob = document.getElementById('open-map-btn'); ob.disabled = this.state.shovels < 3; },
-    openNewMap() { this.state.shovels = 0; this.state.mapLevel++; this.state.castleHp = 100; this.units.forEach(u => u.destroy()); this.units = []; this.enemies.forEach(e => e.destroy()); this.enemies = []; this.drawMap(); this.updateUI(); this.log("开辟新图！"); },
-    gameOver() { this.isGameOver = true; document.getElementById('game-over').style.display = 'flex'; }
+    updateUI() {
+        document.getElementById('gold').innerText = this.state.gold;
+        document.getElementById('castle-hp').innerText = Math.max(0, this.state.castleHp);
+        document.getElementById('wave-num').innerText = this.state.wave;
+        document.getElementById('max-wave').innerText = Config.wavesPerMap;
+        document.getElementById('map-name').innerText = this.mapData.name;
+        document.getElementById('recruit-btn').innerText = `招募 (${this.state.recruitCost}金)`;
+        document.getElementById('next-wave-btn').disabled = this.state.isWaveActive;
+        this.renderBench();
+    },
+    gameOver() { this.isGameOver = true; clearInterval(this.intervals.spawn); clearInterval(this.intervals.checkEnd); document.getElementById('game-over').style.display = 'flex'; }
 };
-
-// 重写点击监听，适配 OOP 结构
-document.getElementById('map-container').addEventListener('click', (e) => {
-    if (Game.isGameOver) return;
-    const target = e.target;
-    // 如果点击的是单位
-    if (target.classList.contains('unit') && !target.classList.contains('unit-enemy')) {
-        const unit = Game.units.find(u => u.el === target);
-        if (unit) Game.handleUnitClick(unit);
-    } else if (target.classList.contains('grid-cell')) {
-        if (Game.selectedEntity && Game.selectedEntity.srcType === 'map') Game.deselectEntity();
-    }
-});
 
 Game.init();
 </script>
