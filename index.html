@@ -1,594 +1,471 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>三国字兵：备战席版 v3.0</title>
-<style>
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'Microsoft YaHei', sans-serif; background: #1a252f; color: #ecf0f1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
-    #top-bar { background: #2c3e50; padding: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; flex-wrap: wrap; border-bottom: 1px solid #34495e; }
-    .stat-box { background: #1a252f; padding: 4px 8px; border-radius: 4px; margin: 2px; }
-    .stat-box span { color: #f39c12; font-weight: bold; }
-    #info-ticker { width: 100%; background: #111; color: #aaa; padding: 4px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #map-container { flex-grow: 1; position: relative; background: #2c3e50; overflow: hidden; }
-    .grid-cell { position: absolute; width: 14%; height: 14%; border: 1px dashed #4a6278; border-radius: 4px; transform: translate(-50%, -50%); z-index: 1; }
-    .path-cell { background: #7f8c8d; z-index: 0; position: absolute; transform: translate(-50%, -50%); }
-    .unit { position: absolute; width: 14%; height: 14%; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 4px; transform: translate(-50%, -50%); z-index: 10; transition: transform 0.1s; font-size: 14px; }
-    .unit-enemy { color: #e74c3c; background: rgba(231, 76, 60, 0.2); border: 1px solid #c0392b; }
-    .unit-basic { color: #3498db; background: rgba(52, 152, 219, 0.2); border: 1px solid #2980b9; }
-    .unit-surname { color: #9b59b6; background: rgba(155, 89, 182, 0.2); border: 1px solid #8e44ad; }
-    .unit-name { color: #1abc9c; background: rgba(26, 188, 156, 0.2); border: 1px solid #16a085; }
-    .unit-hero { color: #f1c40f; background: rgba(241, 196, 15, 0.3); border: 2px solid #f39c12; box-shadow: 0 0 5px #f39c12; }
-    .unit-shovel { color: #95a5a6; background: rgba(149, 165, 166, 0.2); border: 1px solid #7f8c8d; }
-    .selected { box-shadow: 0 0 0 3px #f1c40f; z-index: 20; transform: translate(-50%, -50%) scale(1.1); }
-    .demolish-mode #map-container { cursor: crosshair; }
-    .demolish-mode .unit { border-color: #e74c3c; }
-    .hp-bar { position: absolute; top: 2px; left: 15%; width: 70%; height: 3px; background: #c0392b; border-radius: 2px; }
-    .hp-fill { height: 100%; background: #2ecc71; border-radius: 2px; }
-    .stunned { animation: shake 0.5s infinite; }
-    
-    #bottom-bar { background: #2c3e50; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-    #bench-area { display: flex; gap: 6px; justify-content: space-between; padding: 4px; background: #22313f; border-radius: 4px; border: 1px solid #2c3e50; }
-    .bench-slot { flex: 1; aspect-ratio: 1; background: #1a252f; border: 2px dashed #34495e; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; position: relative; }
-    .bench-slot.empty { border-color: #22313f; }
-    
-    #recruit-area { display: flex; gap: 6px; justify-content: space-between; }
-    .slot { flex: 1; aspect-ratio: 1; background: #1a252f; border: 2px dashed #4a6278; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; position: relative; }
-    .slot.empty { border-color: #2c3e50; }
-    
-    #action-area { display: flex; gap: 10px; }
-    button { color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; }
-    #recruit-btn { flex: 3; padding: 12px; background: #e67e22; }
-    #recruit-btn:active { background: #d35400; }
-    #recruit-btn:disabled { background: #95a5a6; }
-    #next-wave-btn { flex: 2; padding: 12px; background: #c0392b; }
-    #next-wave-btn:active { background: #e74c3c; }
-    #next-wave-btn:disabled { background: #95a5a6; }
-    
-    #game-over { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
-    #game-over h1 { color: #e74c3c; font-size: 32px; margin-bottom: 10px; }
-    @keyframes shake { 0% { transform: translate(-50%, -50%) translateX(0); } 25% { transform: translate(-50%, -50%) translateX(-3px); } 75% { transform: translate(-50%, -50%) translateX(3px); } 100% { transform: translate(-50%, -50%) translateX(0); } }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高铁路线海报生成器 - 地图极致优化版</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f7fa; display: flex; height: 100vh; box-sizing: border-box; }
+        .panel { width: 340px; padding: 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-right: 20px; display: flex; flex-direction: column; overflow-y: auto; }
+        .panel h2 { font-size: 18px; margin-top: 0; border-bottom: 1px solid #f0f0f0; padding-bottom: 12px; color: #1f1f1f; display: flex; align-items: center; gap: 6px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; color: #555; margin-bottom: 6px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1.5px solid #e1e4e8; border-radius: 6px; box-sizing: border-box; font-size: 13px; transition: border-color 0.2s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #1890ff; }
+        .btn { width: 100%; padding: 12px; background: #1890ff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; margin-bottom: 10px; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-export { background: #52c41a; }
+        .preview-area { flex: 1; background: #eaedf1; border-radius: 12px; display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; }
+        svg { background: #fff; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .color-row { display: flex; justify-content: space-between; gap: 10px; }
+        .color-row > div { flex: 1; }
+        .error { color: #f5222d; font-size: 12px; margin-top: 5px; padding: 8px; background: #fff1f0; border-radius: 4px; border: 1px solid #ffccc7; display: none; }
+        .warning { color: #fa8c16; font-size: 12px; margin-top: 5px; padding: 8px; background: #fffbe6; border-radius: 4px; border: 1px solid #ffe58f; display: none; }
+        .tips { font-size: 11px; color: #8c8c8c; line-height: 1.5; margin-top: auto; padding-top: 15px; border-top: 1px dashed #e8e8e8; }
+    </style>
 </head>
 <body>
 
-<div id="top-bar">
-    <div style="display:flex; flex-wrap:wrap; width:100%;">
-        <div class="stat-box">血: <span id="castle-hp">100</span></div>
-        <div class="stat-box">金: <span id="gold">50</span></div>
-        <div class="stat-box">图: <span id="map-name">黄巾</span></div>
-        <div class="stat-box">波: <span id="wave-num">0</span>/<span id="max-wave">5</span></div>
-    </div>
-    <div id="info-ticker">v3.0：备战席上线。单字先存备战席，拼好再上阵！</div>
-</div>
-
-<div id="map-container">
-    <div id="game-over">
-        <h1>城破国亡！</h1>
-        <p id="survival-time"></p>
-        <button id="restart-btn" style="padding: 10px 20px; background: #e67e22;">重新开始</button>
-    </div>
-</div>
-
-<div id="bottom-bar">
-    <!-- 备战席 -->
-    <div id="bench-area">
-        <div class="bench-slot empty" data-index="0"></div>
-        <div class="bench-slot empty" data-index="1"></div>
-        <div class="bench-slot empty" data-index="2"></div>
-        <div class="bench-slot empty" data-index="3"></div>
-    </div>
-    <!-- 招募区 -->
-    <div id="recruit-area">
-        <div class="slot empty" data-index="0"></div>
-        <div class="slot empty" data-index="1"></div>
-        <div class="slot empty" data-index="2"></div>
-        <div class="slot empty" data-index="3"></div>
-        <div class="slot empty" data-index="4"></div>
-        <div class="slot empty" data-index="5"></div>
-    </div>
-    <!-- 操作区 -->
-    <div id="action-area">
-        <button id="recruit-btn">招募 (20金)</button>
-        <button id="next-wave-btn">出阵迎敌</button>
-    </div>
-</div>
-
-<script>
-// ================= 1. 全局配置数据 =================
-const Config = {
-    recruitBaseCost: 20,
-    recruitCostIncrease: 2,
-    wavesPerMap: 5,
-    shovelRefundRate: 0.6,
-    typeWeights: { basic: 0.60, surname: 0.20, name: 0.15, shovel: 0.05 }
-};
-
-// ================= 2. 核心基础架构 =================
-const EventBus = {
-    events: {},
-    on(event, callback) { (this.events[event] = this.events[event] || []).push(callback); },
-    emit(event, data) { (this.events[event] || []).forEach(cb => cb(data)); }
-};
-
-class SpatialGrid {
-    constructor(cellSize = 20) { this.cellSize = cellSize; this.grid = new Map(); }
-    clear() { this.grid.clear(); }
-    _getKey(x, y) { return `${Math.floor(x / this.cellSize)},${Math.floor(y / this.cellSize)}`; }
-    insert(entity) {
-        const key = this._getKey(entity.x, entity.y);
-        if (!this.grid.has(key)) this.grid.set(key, []);
-        this.grid.get(key).push(entity);
-    }
-    queryNearby(x, y, range) {
-        const results = [];
-        const checks = Math.ceil(range / this.cellSize);
-        const baseX = Math.floor(x / this.cellSize);
-        const baseY = Math.floor(y / this.cellSize);
-        for (let i = -checks; i <= checks; i++) {
-            for (let j = -checks; j <= checks; j++) {
-                const key = `${baseX + i},${baseY + j}`;
-                if (this.grid.has(key)) results.push(...this.grid.get(key));
-            }
-        }
-        return results;
-    }
-}
-
-// ================= 3. 实体类设计 =================
-class Entity {
-    constructor(char, x, y) {
-        this.id = Math.random().toString(36).substr(2, 9);
-        this.char = char; this.x = x; this.y = y; this.el = null;
-    }
-    render() {
-        if (!this.el) {
-            this.el = document.createElement('div');
-            this.el.className = 'unit';
-            this.el.dataset.id = this.id;
-            document.getElementById('map-container').appendChild(this.el);
-            this.el.addEventListener('click', (e) => {
-                e.stopPropagation();
-                Game.handleEntityClick(this);
-            });
-        }
-        this.el.style.left = this.x + '%';
-        this.el.style.top = this.y + '%';
-        this.el.innerText = this.char;
-    }
-    destroy() { if (this.el) this.el.remove(); this.el = null; }
-}
-
-class Enemy extends Entity {
-    constructor(char, x, y, hp, speed, path) {
-        super(char, x, y); this.hp = hp; this.maxHp = hp; this.speed = speed;
-        this.path = path; this.pathIndex = 0; this.stunTimer = 0; this.bounty = 10;
-        this.hpFillEl = null;
-    }
-    update(dt) {
-        if (this.stunTimer > 0) { this.stunTimer -= dt; this.el.classList.add('stunned'); return; }
-        this.el.classList.remove('stunned');
-        if (this.pathIndex < this.path.length - 1) {
-            const target = this.path[this.pathIndex + 1];
-            const dx = target.x - this.x, dy = target.y - this.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < this.speed * 2) { this.pathIndex++; }
-            else { this.x += (dx / dist) * this.speed; this.y += (dy / dist) * this.speed; }
-        } else { EventBus.emit('enemy_reach_castle', { enemy: this }); this.hp = 0; }
-    }
-    takeDamage(dmg) {
-        this.hp -= dmg;
-        if (this.hpFillEl) this.hpFillEl.style.width = Math.max(0, (this.hp / this.maxHp * 100)) + '%';
-        if (this.hp <= 0) EventBus.emit('enemy_die', { enemy: this });
-    }
-    render() {
-        super.render();
-        this.el.classList.add('unit-enemy');
-        if (!this.hpFillEl) {
-            const hpBar = document.createElement('div'); hpBar.className = 'hp-bar';
-            this.hpFillEl = document.createElement('div'); this.hpFillEl.className = 'hp-fill';
-            hpBar.appendChild(this.hpFillEl); this.el.appendChild(hpBar);
-        }
-    }
-}
-
-class Unit extends Entity {
-    constructor(char, type, x, y, stats) {
-        super(char, x, y); this.type = type; this.dmg = stats.dmg || 0;
-        this.range = stats.range || 0; this.atkSpeed = stats.atkSpeed || 9999;
-        this.cd = 0; this.stats = stats; this.value = stats.value || 10; // 记录价值用于铲子回收
-    }
-    update(dt, grid) {
-        if (this.dmg === 0) return;
-        this.cd -= dt;
-        if (this.cd <= 0) {
-            const nearbyEnemies = grid.queryNearby(this.x, this.y, this.range).filter(e => e instanceof Enemy);
-            if (nearbyEnemies.length > 0) { this.attack(nearbyEnemies); this.cd = this.atkSpeed; }
-        }
-    }
-    attack(enemies) { enemies[0].takeDamage(this.dmg); this.playAtkAnim(); }
-    playAtkAnim() {
-        this.el.style.transform = 'translate(-50%, -50%) scale(1.3)';
-        setTimeout(() => { if(this.el) this.el.style.transform = 'translate(-50%, -50%) scale(1)'; }, 100);
-    }
-    render() { super.render(); this.el.className = `unit unit-${this.type}`; }
-}
-
-class BowUnit extends Unit { attack(enemies) { enemies[0].takeDamage(this.dmg); super.playAtkAnim(); } }
-class BladeUnit extends Unit { attack(enemies) { enemies.forEach(e => e.takeDamage(this.dmg)); super.playAtkAnim(); } }
-class SpearUnit extends Unit { attack(enemies) { enemies.slice(0, 2).forEach(e => e.takeDamage(this.dmg)); super.playAtkAnim(); } }
-
-class HeroUnit extends Unit {
-    constructor(char, x, y, stats) { super(char, 'hero', x, y, stats); }
-    attack(enemies) {
-        if (this.char === '张飞') { enemies.forEach(e => { e.takeDamage(this.dmg); e.stunTimer = 1500; }); }
-        else { enemies[0].takeDamage(this.dmg); }
-        super.playAtkAnim();
-    }
-}
-
-// ================= 4. 游戏管理器 =================
-const Game = {
-    state: { gold: 50, castleHp: 100, mapLevel: 1, wave: 0, recruitCost: 20, isWaveActive: false, demolishMode: false },
-    units: [], enemies: [], bench: [null, null, null, null], grid: new SpatialGrid(),
-    mapData: null, selectedEntity: null, isGameOver: false, lastTime: 0,
-    intervals: { spawn: null, checkEnd: null },
-
-    MAPS: [
-        { name: "黄巾", path: [{x: 0, y: 30}, {x: 70, y: 30}, {x: 70, y: 70}, {x: 0, y: 70}] },
-        { name: "虎牢", path: [{x: 0, y: 20}, {x: 40, y: 20}, {x: 40, y: 80}, {x: 100, y: 80}] },
-        { name: "赤壁", path: [{x: 0, y: 50}, {x: 30, y: 50}, {x: 30, y: 20}, {x: 70, y: 20}, {x: 70, y: 80}, {x: 100, y: 80}] }
-    ],
-    UPGRADE_TREE: { '弓': '弩', '弩': '射', '射': '神射', '刀': '剑', '剑': '斩', '斩': '绝斩', '枪': '矛', '矛': '刺', '刺': '贯', '骑': '驱', '驱': '驰', '驰': '铁骑' },
-    UNIT_STATS: {
-        '弓': {dmg:10, range:30, atkSpeed:1000, class: BowUnit, value: 10}, '弩': {dmg:25, range:32, atkSpeed:900, class: BowUnit, value: 20}, '射': {dmg:60, range:35, atkSpeed:800, class: BowUnit, value: 40}, '神射': {dmg:150, range:40, atkSpeed:700, class: BowUnit, value: 80},
-        '刀': {dmg:8, range:15, atkSpeed:800, class: BladeUnit, value: 10}, '剑': {dmg:20, range:16, atkSpeed:750, class: BladeUnit, value: 20}, '斩': {dmg:45, range:18, atkSpeed:700, class: BladeUnit, value: 40}, '绝斩': {dmg:100, range:20, atkSpeed:600, class: BladeUnit, value: 80},
-        '枪': {dmg:15, range:20, atkSpeed:1200, class: SpearUnit, value: 10}, '矛': {dmg:35, range:22, atkSpeed:1100, class: SpearUnit, value: 20}, '刺': {dmg:80, range:24, atkSpeed:1000, class: SpearUnit, value: 40}, '贯': {dmg:160, range:26, atkSpeed:900, class: SpearUnit, value: 80},
-        '骑': {dmg:20, range:15, atkSpeed:600, class: Unit, value: 10}, '驱': {dmg:45, range:16, atkSpeed:500, class: Unit, value: 20}, '驰': {dmg:90, range:18, atkSpeed:400, class: Unit, value: 40}, '铁骑': {dmg:200, range:20, atkSpeed:300, class: Unit, value: 80}
-    },
-    HERO_DB: {
-        '关羽': { skill: '横扫', dmg: 60, range: 35, atkSpeed: 1200, value: 50 },
-        '张飞': { skill: '震击', dmg: 40, range: 25, atkSpeed: 1000, value: 50 },
-        '赵云': { skill: '连击', dmg: 30, range: 30, atkSpeed: 400, value: 50 },
-        '诸葛亮':{ skill: '八阵', dmg: 10, range: 50, atkSpeed: 1500, value: 50 }
-    },
-
-    init() {
-        EventBus.on('enemy_die', (data) => this.onEnemyDie(data.enemy));
-        EventBus.on('enemy_reach_castle', (data) => this.onEnemyReachCastle(data.enemy));
+    <!-- 左侧控制面板 -->
+    <div class="panel">
+        <h2>🚄 高铁路线海报生成器</h2>
         
-        document.getElementById('recruit-btn').addEventListener('click', () => this.recruit());
-        document.getElementById('next-wave-btn').addEventListener('click', () => this.startWave());
-        document.getElementById('restart-btn').addEventListener('click', () => location.reload());
+        <div class="form-group">
+            <label>地图区域</label>
+            <select id="mapRegion" onchange="loadMapDataAndRender()">
+                <option value="四川">四川省</option>
+                <option value="广东">广东省</option>
+                <option value="浙江">浙江省</option>
+                <option value="江苏">江苏省</option>
+                <option value="山东">山东省</option>
+                <option value="全国">中国全图</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>起点站 (支持输入"站名(经度,纬度)")</label>
+            <input type="text" id="startStation" value="自贡站">
+        </div>
+        <div class="form-group">
+            <label>终点站 (内置数百个站点)</label>
+            <input type="text" id="endStation" value="成都东站">
+        </div>
         
-        document.getElementById('map-container').addEventListener('click', (e) => this.handleMapClick(e));
+        <div class="form-group">
+            <label>车次信息</label>
+            <input type="text" id="trainNo" value="G8770 复兴号">
+        </div>
+        <div class="form-group">
+            <label>时间/耗时</label>
+            <input type="text" id="trainTime" value="08:15 - 09:56 (1h41m)">
+        </div>
+
+        <div class="color-row">
+            <div class="form-group">
+                <label>普通地图底色</label>
+                <input type="color" id="baseColor" value="#f5f5f5">
+            </div>
+            <div class="form-group">
+                <label>起止城市高亮色</label>
+                <input type="color" id="highlightColor" value="#ff4d4f">
+            </div>
+        </div>
+
+        <div class="color-row">
+            <div class="form-group">
+                <label>路线/文字颜色</label>
+                <input type="color" id="routeColor" value="#1a1a1a">
+            </div>
+            <div class="form-group">
+                <label>城市边界描边</label>
+                <input type="color" id="borderColor" value="#dddddd">
+            </div>
+        </div>
+
+        <button class="btn btn-export" onclick="downloadSVG()">💾 导出 SVG (用于设计/幻灯片)</button>
         
-        this.drawMap();
-        this.updateUI();
-        this.gameLoop(0);
-    },
+        <div id="warnMessage" class="warning"></div>
+        <div id="errorMessage" class="error"></div>
 
-    gameLoop(timestamp) {
-        if (this.isGameOver) return;
-        const dt = timestamp - this.lastTime;
-        this.lastTime = timestamp;
+        <div class="tips">
+            <strong>💡 高级技巧：</strong><br>
+            如果输入的站点在字典中未找到，可直接按格式输入坐标临时绘制。例如：<br>
+            <code style="background:#f5f5f5;padding:2px 4px;border-radius:3px">达州站 (107.472, 31.218)</code>
+        </div>
+    </div>
 
-        this.grid.clear();
-        this.enemies.forEach(e => this.grid.insert(e));
+    <!-- 右侧预览区 -->
+    <div class="preview-area">
+        <svg id="mapSvg" width="500" height="700"></svg>
+    </div>
 
-        this.enemies.forEach(e => e.update(dt));
-        this.units.forEach(u => u.update(dt, this.grid));
+    <script>
+        // --- 内置常用高铁站点地理坐标库 (GCJ-02/WGS84 混用在地图比例尺下无感) ---
+        const STATION_DB = {
+            // 四川及重庆
+            "自贡站": [104.771, 29.381], "成都东站": [104.144, 30.631], "成都南站": [104.068, 30.606], "成都西站": [103.975, 30.676],
+            "绵阳站": [104.726, 31.468], "德阳站": [104.412, 31.141], "乐山站": [103.715, 29.605], "峨眉山站": [103.491, 29.589],
+            "宜宾站": [104.607, 28.752], "宜宾西站": [104.577, 28.734], "泸州站": [105.433, 28.919], "广安南站": [106.634, 30.443],
+            "南充站": [106.082, 30.811], "达州站": [107.472, 31.218], "广元站": [105.815, 32.435], "遂宁站": [105.568, 30.528],
+            "内江北站": [105.045, 29.611], "简阳南站": [104.562, 30.384], "资阳北站": [104.629, 30.151], "眉山东站": [103.829, 30.048],
+            "雅安站": [103.041, 29.988], "西昌西站": [102.193, 27.881], "攀枝花南站": [101.716, 26.495],
+            "重庆北站": [106.608, 29.615], "重庆西站": [106.443, 29.485], "沙坪坝站": [106.469, 29.556],
+            // 广东
+            "广州南站": [113.267, 22.988], "深圳北站": [114.029, 22.609], "珠海站": [113.557, 22.221], "汕头站": [116.749, 23.365],
+            "潮汕站": [116.608, 23.551], "湛江西站": [110.301, 21.155], "韶关站": [113.513, 24.789],
+            // 浙江
+            "杭州东站": [120.213, 30.290], "宁波站": [121.536, 29.866], "温州南站": [120.584, 27.967], "金华站": [119.642, 29.117],
+            // 江苏
+            "南京南站": [118.797, 31.963], "苏州站": [120.612, 31.330], "无锡站": [120.303, 31.589], "徐州东站": [117.291, 34.263],
+            // 山东
+            "济南西站": [116.892, 36.668], "青岛站": [120.318, 36.065], "烟台站": [121.383, 37.548], "临沂北站": [118.358, 35.197],
+            // 全国大站
+            "北京西站": [116.322, 39.894], "北京南站": [116.379, 39.865], "上海虹桥站": [121.320, 31.194], "武汉站": [114.424, 30.607],
+            "长沙南站": [113.064, 28.148], "西安北站": [108.939, 34.375], "郑州东站": [113.778, 34.758], "昆明南站": [102.852, 24.880],
+            "贵阳北站": [106.671, 26.621], "兰州西站": [103.749, 36.068], "南宁东站": [108.409, 22.827]
+        };
 
-        this.enemies = this.enemies.filter(e => { if (e.hp <= 0) { e.destroy(); return false; } return true; });
-        this.enemies.forEach(e => e.render());
-        this.units.forEach(u => u.render());
+        const MAP_URLS = {
+            "四川": "https://geo.datav.aliyun.com/areas_v3/bound/510000_full.json",
+            "广东": "https://geo.datav.aliyun.com/areas_v3/bound/440000_full.json",
+            "浙江": "https://geo.datav.aliyun.com/areas_v3/bound/330000_full.json",
+            "江苏": "https://geo.datav.aliyun.com/areas_v3/bound/320000_full.json",
+            "山东": "https://geo.datav.aliyun.com/areas_v3/bound/370000_full.json",
+            "全国": "https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json"
+        };
 
-        requestAnimationFrame((t) => this.gameLoop(t));
-    },
+        let currentRegion = "";
+        let geoJsonCache = {};
 
-    // --- 核心交互逻辑 ---
-    selectEntity(srcType, el, data) {
-        this.deselectEntity();
-        this.selectedEntity = { srcType, el, data };
-        if (el) el.classList.add('selected');
-    },
-    deselectEntity() {
-        if (this.selectedEntity && this.selectedEntity.el && document.body.contains(this.selectedEntity.el)) {
-            this.selectedEntity.el.classList.remove('selected');
-        }
-        this.selectedEntity = null;
-    },
-    handleEntityClick(entity) {
-        if (this.state.demolishMode) {
-            if (entity instanceof Unit) this.demolishUnit(entity);
-            return;
-        }
-        if (this.selectedEntity) {
-            this.tryCombine(this.selectedEntity, entity);
-        } else {
-            if (entity instanceof Unit) {
-                this.selectEntity('map', entity.el, entity);
-            }
-        }
-    },
-    handleMapClick(e) {
-        if (this.isGameOver) return;
-        const target = e.target;
-        
-        if (this.state.demolishMode) {
-            this.toggleDemolishMode(false);
-            return;
-        }
-
-        if (target.classList.contains('grid-cell') && this.selectedEntity) {
-            const x = parseFloat(target.dataset.x);
-            const y = parseFloat(target.dataset.y);
+        // --- 坐标输入解析器 ---
+        function parseStation(inputVal, defaultCoord) {
+            const trimmed = inputVal.trim();
             
-            if (this.selectedEntity.srcType === 'recruit' || this.selectedEntity.srcType === 'bench') {
-                this.deployUnit(this.selectedEntity.data.char, this.selectedEntity.data.type, x, y, this.selectedEntity.data.value);
-                this.clearSourceSlot();
-                this.deselectEntity();
-            }
-        } else if (target.id === 'map-container' || target.classList.contains('path-cell')) {
-            this.deselectEntity();
-        }
-    },
-
-    // --- 招募与备战席 ---
-    recruit() {
-        if (this.state.gold < this.state.recruitCost) return this.log("金币不足！");
-        this.state.gold -= this.state.recruitCost;
-        this.state.recruitCost += Config.recruitCostIncrease;
-        this.updateUI();
-
-        const TYPES = { BASIC: ['弓', '刀', '枪', '骑'], SURNAME: ['关', '张', '赵', '马', '黄', '吕', '诸'], NAME: ['羽', '飞', '云', '超', '忠', '布', '亮'] };
-        
-        document.querySelectorAll('.slot').forEach(s => { s.innerHTML = ''; s.classList.add('empty'); });
-
-        for (let i = 0; i < 6; i++) {
-            const rand = Math.random();
-            let char, type, value = 10;
-            if (rand < Config.typeWeights.basic) { char = TYPES.BASIC[Math.floor(Math.random() * 4)]; type = 'basic'; }
-            else if (rand < Config.typeWeights.basic + Config.typeWeights.surname) { char = TYPES.SURNAME[Math.floor(Math.random() * 7)]; type = 'surname'; }
-            else if (rand < Config.typeWeights.basic + Config.typeWeights.surname + Config.typeWeights.name) { char = TYPES.NAME[Math.floor(Math.random() * 7)]; type = 'name'; }
-            else { char = '铲'; type = 'shovel'; }
-
-            const slot = document.querySelector(`.slot[data-index="${i}"]`);
-            slot.classList.remove('empty');
-            const el = document.createElement('div');
-            el.className = `unit unit-${type}`;
-            el.style.cssText = 'position:relative;transform:none;width:100%;height:100%;';
-            el.innerText = char;
+            // 尝试匹配带括号的坐标输入，例: 自贡站 (104.77, 29.38)
+            const coordRegex = /[\(\uff08]\s*([\d\.]+)\s*[\s,，]\s*([\d\.]+)\s*[\)\uff09]/;
+            const match = trimmed.match(coordRegex);
             
-            if (char === '铲') {
-                el.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.toggleDemolishMode(true);
-                    slot.innerHTML = ''; slot.classList.add('empty');
-                });
-            } else {
-                el.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.selectEntity('recruit', el, { char, type, value, index: i });
-                });
+            if (match) {
+                const name = trimmed.replace(/[\(\uff08].*[\)\uff09]/, "").trim();
+                return { name, coords: [parseFloat(match[1]), parseFloat(match[2])], custom: true };
             }
-            slot.appendChild(el);
-        }
-    },
 
-    toggleDemolishMode(active) {
-        this.state.demolishMode = active;
-        document.body.classList.toggle('demolish-mode', active);
-        if (active) this.log("已激活铲子，点击要拆除的单位返还金币。");
-    },
-    demolishUnit(unit) {
-        const refund = Math.floor(unit.value * Config.shovelRefundRate);
-        this.state.gold += refund;
-        this.log(`拆除 ${unit.char}，返还 ${refund} 金币。`);
-        unit.destroy();
-        this.units = this.units.filter(u => u.id !== unit.id);
-        this.toggleDemolishMode(false);
-        this.updateUI();
-    },
-
-    moveToBench(benchIndex) {
-        if (!this.selectedEntity) return;
-        if (this.bench[benchIndex]) return this.log("备战席已满！");
-        
-        const data = this.selectedEntity.data;
-        this.bench[benchIndex] = { char: data.char, type: data.type, value: data.value };
-        this.clearSourceSlot();
-        this.renderBench();
-        this.deselectEntity();
-    },
-    renderBench() {
-        document.querySelectorAll('.bench-slot').forEach((s, i) => {
-            s.innerHTML = ''; s.classList.add('empty'); s.onclick = null;
-            if (this.bench[i]) {
-                s.classList.remove('empty');
-                const el = document.createElement('div');
-                el.className = `unit unit-${this.bench[i].type}`;
-                el.style.cssText = 'position:relative;transform:none;width:100%;height:100%;';
-                el.innerText = this.bench[i].char;
-                el.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.selectEntity('bench', el, { ...this.bench[i], index: i });
-                });
-                s.appendChild(el);
-            } else {
-                // 点击空备战席，如果选中了东西，就放进去
-                s.onclick = () => this.moveToBench(i);
+            // 在静态库中匹配
+            if (STATION_DB[trimmed]) {
+                return { name: trimmed, coords: STATION_DB[trimmed], custom: false };
             }
-        });
-    },
-    clearSourceSlot() {
-        const src = this.selectedEntity.srcType;
-        const idx = this.selectedEntity.data.index;
-        if (src === 'recruit') {
-            const slot = document.querySelector(`.slot[data-index="${idx}"]`);
-            slot.innerHTML = ''; slot.classList.add('empty');
-        } else if (src === 'bench') {
-            this.bench[idx] = null;
-            this.renderBench();
-        } else if (src === 'map') {
-            const unit = this.selectedEntity.data;
-            unit.destroy();
-            this.units = this.units.filter(u => u.id !== unit.id);
-        }
-    },
 
-    // --- 部署与合成 ---
-    deployUnit(char, type, x, y, value = 10) {
-        let unit;
-        if (type === 'hero') {
-            unit = new HeroUnit(char, x, y, {...this.HERO_DB[char], value});
-        } else if (this.UNIT_STATS[char]) {
-            const stats = this.UNIT_STATS[char];
-            unit = new stats.class(char, 'basic', x, y, {...stats, value});
-        } else {
-            unit = new Unit(char, type, x, y, {dmg:0, range:0, atkSpeed:9999, value});
-        }
-        unit.render();
-        this.units.push(unit);
-    },
-
-    tryCombine(srcEntity, targetUnit) {
-        const char1 = srcEntity.data.char;
-        const char2 = targetUnit.char;
-        const combinedStr = char1 + char2;
-        const reverseStr = char2 + char1;
-        
-        let isSuccess = false;
-        let newChar = '';
-        let newType = '';
-        let newValue = 0;
-
-        if (this.HERO_DB[combinedStr] || this.HERO_DB[reverseStr]) {
-            newChar = this.HERO_DB[combinedStr] ? combinedStr : reverseStr;
-            newType = 'hero';
-            newValue = srcEntity.data.value + targetUnit.value;
-            this.log(`✨ ${newChar} 降临战场！`, true);
-            isSuccess = true;
-        } else if (char1 === char2 && this.UPGRADE_TREE[char1]) {
-            newChar = this.UPGRADE_TREE[char1];
-            newType = 'basic';
-            newValue = srcEntity.data.value + targetUnit.value;
-            this.log(`${char1} 升级为 ${newChar}！`);
-            isSuccess = true;
+            // 完全匹配不到，给出降级方案
+            return { 
+                name: trimmed, 
+                coords: defaultCoord, 
+                notFound: true 
+            };
         }
 
-        if (isSuccess) {
-            // 销毁源和目标
-            this.clearSourceSlot(); // 清除招募区/备战席/地图上的源
-            targetUnit.destroy();
-            this.units = this.units.filter(u => u.id !== targetUnit.id);
-            this.deselectEntity();
-
-            // 在目标位置生成新单位
-            this.deployUnit(newChar, newType, targetUnit.x, targetUnit.y, newValue);
-        } else {
-            this.log("无法组成武将或升阶！");
-            targetUnit.el.style.animation = 'shake 0.3s';
-            srcEntity.el.style.animation = 'shake 0.3s';
-            setTimeout(() => { 
-                if(targetUnit.el) targetUnit.el.style.animation = ''; 
-                if(srcEntity.el) srcEntity.el.style.animation = ''; 
-            }, 300);
-            this.deselectEntity();
+        // --- 提取城市纯文字用于匹配高亮 ---
+        function getCityKey(stationName) {
+            return stationName.replace(/(站|东|西|南|北|机场)/g, "");
         }
-    },
 
-    // --- 波次与关卡推进 ---
-    startWave() {
-        if (this.state.isWaveActive) return;
-        this.state.isWaveActive = true;
-        this.state.wave++;
-        this.updateUI();
-        
-        const count = 5 + this.state.wave * 2;
-        let spawned = 0;
-        this.intervals.spawn = setInterval(() => {
-            if (spawned >= count) {
-                clearInterval(this.intervals.spawn);
-                this.intervals.checkEnd = setInterval(() => {
-                    if (this.enemies.length === 0) {
-                        clearInterval(this.intervals.checkEnd);
-                        this.endWave();
+        // --- 加载数据并渲染 ---
+        async function loadMapDataAndRender() {
+            const regionSelect = document.getElementById("mapRegion").value;
+            const errorDiv = document.getElementById("errorMessage");
+            const warnDiv = document.getElementById("warnMessage");
+            
+            errorDiv.style.display = "none";
+            warnDiv.style.display = "none";
+
+            try {
+                if (!geoJsonCache[regionSelect]) {
+                    const response = await fetch(MAP_URLS[regionSelect]);
+                    if (!response.ok) throw new Error(`无法获取该区域地图数据`);
+                    geoJsonCache[regionSelect] = await response.json();
+                }
+                currentRegion = regionSelect;
+                renderMap(geoJsonCache[regionSelect]);
+            } catch (err) {
+                errorDiv.textContent = `加载地图失败: ${err.message}`;
+                errorDiv.style.display = "block";
+            }
+        }
+
+        // --- 主渲染程序 ---
+        function renderMap(geoData) {
+            const svg = d3.select("#mapSvg");
+            svg.selectAll("*").remove();
+
+            // 1. 获取和解析输入参数
+            const startInput = document.getElementById("startStation").value;
+            const endInput = document.getElementById("endStation").value;
+            const trainNo = document.getElementById("trainNo").value;
+            const trainTime = document.getElementById("trainTime").value;
+            
+            const baseColor = document.getElementById("baseColor").value;
+            const highlightColor = document.getElementById("highlightColor").value;
+            const routeColor = document.getElementById("routeColor").value;
+            const borderColor = document.getElementById("borderColor").value;
+
+            // 智能容错：当匹配失败时的坐标默认值 (自贡 vs 成都东)
+            const startParsed = parseStation(startInput, [104.771, 29.381]);
+            const endParsed = parseStation(endInput, [104.144, 30.631]);
+
+            // 显示警告提示
+            const warnDiv = document.getElementById("warnMessage");
+            let warnings = [];
+            if (startParsed.notFound) warnings.push(`未找到 [${startParsed.name}] 坐标，已使用自贡站做临时占位。`);
+            if (endParsed.notFound) warnings.push(`未找到 [${endParsed.name}] 坐标，已使用成都东站做临时占位。`);
+            if (warnings.length > 0) {
+                warnDiv.innerHTML = warnings.join("<br>");
+                warnDiv.style.display = "block";
+            }
+
+            const p1 = startParsed.coords;
+            const p2 = endParsed.coords;
+
+            // 提取起终点核心地名 (比如 "成都东" -> "成都"，用于匹配地图 properties.name)
+            const startCity = getCityKey(startParsed.name);
+            const endCity = getCityKey(endParsed.name);
+
+            // 2. 核心数学：重构投影自适应定位 (fitExtent)
+            const width = 500, height = 700;
+
+            // 构造包含“地图多边形”和“起止点坐标”的临时复合虚拟 Feature，一键计算完美可视范围
+            const virtualFeatures = [
+                ...geoData.features,
+                { type: "Feature", geometry: { type: "Point", coordinates: p1 } },
+                { type: "Feature", geometry: { type: "Point", coordinates: p2 } }
+            ];
+            const fitCollection = { type: "FeatureCollection", features: virtualFeatures };
+
+            // 投影设置：地图自适应缩放（预留顶部标题 70px 空间，底部卡片 140px 空间）
+            const projection = d3.geoMercator()
+                .fitExtent([[35, 80], [width - 35, height - 160]], fitCollection);
+            
+            const pathGenerator = d3.geoPath().projection(projection);
+
+            // 3. 渲染精致海报框与背景
+            svg.append("rect")
+                .attr("width", width)
+                .attr("height", height)
+                .attr("fill", "#ffffff");
+
+            // 绘制海报艺术边框
+            svg.append("rect")
+                .attr("x", 15)
+                .attr("y", 15)
+                .attr("width", width - 30)
+                .attr("height", height - 30)
+                .attr("fill", "none")
+                .attr("stroke", "#1a1a1a")
+                .attr("stroke-width", 1)
+                .attr("opacity", 0.15);
+
+            // 顶端复古打字机风小字
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", 45)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "10px")
+                .attr("letter-spacing", "3px")
+                .attr("font-weight", "600")
+                .attr("fill", "#8c8c8c")
+                .text("CHINA HIGH-SPEED RAILWAY poster");
+
+            // 4. 渲染地图板块 (包含高亮检测)
+            svg.append("g")
+                .attr("class", "map-layer")
+                .selectAll("path")
+                .data(geoData.features)
+                .enter()
+                .append("path")
+                .attr("d", pathGenerator)
+                .attr("fill", d => {
+                    const name = d.properties.name || "";
+                    // 模糊匹配行政区，如 "成都市" 匹配 "成都"
+                    if ((startCity && name.includes(startCity)) || (endCity && name.includes(endCity))) {
+                        return highlightColor;
                     }
-                }, 1000);
-                return;
+                    return baseColor;
+                })
+                .attr("stroke", borderColor)
+                .attr("stroke-width", 0.5);
+
+            // 5. 投影坐标，渲染铁路线及站点
+            const [x1, y1] = projection(p1);
+            const [x2, y2] = projection(p2);
+
+            // 绘制完美的路线曲线 (贝塞尔曲率优化)
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const offset = Math.sqrt(dx * dx + dy * dy) * 0.18; // 曲线弧度振幅
+            const cx = midX - dy * (offset / Math.sqrt(dx*dx + dy*dy));
+            const cy = midY + dx * (offset / Math.sqrt(dx*dx + dy*dy));
+
+            const curvePath = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+
+            // 路线虚线投影发光底层
+            svg.append("path")
+                .attr("d", curvePath)
+                .attr("fill", "none")
+                .attr("stroke", highlightColor)
+                .attr("stroke-width", 5)
+                .attr("opacity", 0.15)
+                .attr("stroke-linecap", "round");
+
+            // 路线主虚线
+            svg.append("path")
+                .attr("d", curvePath)
+                .attr("fill", "none")
+                .attr("stroke", routeColor)
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "6 4")
+                .attr("stroke-linecap", "round");
+
+            // 起始/终点站定位 Pin (立体的双层呼吸圆圈)
+            function drawPin(x, y, labelText) {
+                const group = svg.append("g").attr("transform", `translate(${x}, ${y})`);
+                
+                group.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", highlightColor)
+                    .attr("opacity", 0.25);
+
+                group.append("circle")
+                    .attr("r", 4.5)
+                    .attr("fill", "#fff")
+                    .attr("stroke", routeColor)
+                    .attr("stroke-width", 2);
+
+                svg.append("text")
+                    .attr("x", x)
+                    .attr("y", y - 14)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "12px")
+                    .attr("font-weight", "bold")
+                    .attr("fill", routeColor)
+                    .text(labelText);
             }
-            this.spawnEnemy();
-            spawned++;
-        }, 1500);
-    },
-    endWave() {
-        this.state.isWaveActive = false;
-        this.state.gold += 20;
-        this.state.recruitCost = Config.recruitBaseCost;
-        this.log(`第 ${this.state.wave} 波清理完毕！获得 20 金币奖励。`);
-        this.updateUI();
 
-        // 过关判定
-        if (this.state.wave % Config.wavesPerMap === 0) {
-            setTimeout(() => this.nextMap(), 2000);
+            drawPin(x1, y1, startParsed.name);
+            drawPin(x2, y2, endParsed.name);
+
+            // 6. 极致排版：底端精装车票信息卡片
+            const cardY = height - 130;
+            const cardHeight = 85;
+            const cardWidth = width - 80;
+            const cardX = 40;
+
+            // 乘车证容器阴影底层
+            svg.append("rect")
+                .attr("x", cardX)
+                .attr("y", cardY)
+                .attr("width", cardWidth)
+                .attr("height", cardHeight)
+                .attr("fill", "#ffffff")
+                .attr("rx", 8)
+                .attr("filter", "drop-shadow(0px 6px 16px rgba(0,0,0,0.06))");
+
+            // 左侧标志色竖条
+            svg.append("line")
+                .attr("x1", cardX + 18)
+                .attr("y1", cardY + 20)
+                .attr("x2", cardX + 18)
+                .attr("y2", cardY + cardHeight - 20)
+                .attr("stroke", highlightColor)
+                .attr("stroke-width", 3.5)
+                .attr("stroke-linecap", "round");
+
+            // 卡片内容文字
+            svg.append("text")
+                .attr("x", cardX + 32)
+                .attr("y", cardY + 34)
+                .attr("font-size", "18px")
+                .attr("font-weight", "800")
+                .attr("fill", routeColor)
+                .text(`${startParsed.name} ⇄ ${endParsed.name}`);
+
+            svg.append("text")
+                .attr("x", cardX + 32)
+                .attr("y", cardY + 56)
+                .attr("font-size", "11px")
+                .attr("fill", "#666666")
+                .attr("font-weight", "600")
+                .attr("letter-spacing", "0.5px")
+                .text(`DEPARTURE • ${trainNo}`);
+
+            svg.append("text")
+                .attr("x", cardX + 32)
+                .attr("y", cardY + 71)
+                .attr("font-size", "11px")
+                .attr("fill", "#8c8c8c")
+                .text(`TRAVEL TIME • ${trainTime}`);
+
+            // 右下角“乘车检票纪念章”
+            const stampGroup = svg.append("g")
+                .attr("transform", `translate(${cardX + cardWidth - 55}, ${cardY + 22})`);
+
+            stampGroup.append("rect")
+                .attr("width", 35)
+                .attr("height", 35)
+                .attr("fill", "none")
+                .attr("stroke", highlightColor)
+                .attr("stroke-width", 1.2)
+                .attr("opacity", 0.6)
+                .attr("rx", 3);
+
+            stampGroup.append("text")
+                .attr("x", 17.5)
+                .attr("y", 18)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "8px")
+                .attr("fill", highlightColor)
+                .attr("font-weight", "bold")
+                .text("BOARD");
+
+            stampGroup.append("text")
+                .attr("x", 17.5)
+                .attr("y", 27)
+                .attr("text-anchor", "middle")
+                .attr("font-size", "7px")
+                .attr("fill", highlightColor)
+                .attr("font-weight", "500")
+                .text("PASS");
         }
-    },
-    nextMap() {
-        clearInterval(this.intervals.spawn);
-        clearInterval(this.intervals.checkEnd);
-        this.state.mapLevel++;
-        this.state.wave = 0;
-        this.state.castleHp = 100;
-        // 保留武将，清空敌人
-        this.enemies.forEach(e => e.destroy()); this.enemies = [];
-        this.drawMap();
-        this.updateUI();
-        this.log(`大军推进至：${this.mapData.name}！阵容已保留。`, true);
-    },
-    spawnEnemy() {
-        const path = this.mapData.path;
-        const isZhu = Math.random() < 0.2 + (this.state.wave * 0.02);
-        const hp = (isZhu ? 100 : 50) * Math.pow(1.2, this.state.wave - 1) * Math.pow(1.5, this.state.mapLevel - 1);
-        const speed = isZhu ? 0.3 : 0.6;
-        const char = isZhu ? '卒' : '兵';
-        const enemy = new Enemy(char, path[0].x, path[0].y, hp, speed, path);
-        enemy.bounty = isZhu ? 15 : 10;
-        this.enemies.push(enemy);
-    },
 
-    // --- 事件与UI ---
-    onEnemyDie(enemy) { this.state.gold += enemy.bounty; this.updateUI(); },
-    onEnemyReachCastle(enemy) {
-        this.state.castleHp -= 10;
-        if (this.state.castleHp <= 0) this.gameOver();
-        this.updateUI();
-    },
-    drawMap() {
-        const c = document.getElementById('map-container');
-        Array.from(c.children).forEach(child => { if (child.id !== 'game-over') child.remove(); });
-        this.mapData = this.MAPS[(this.state.mapLevel - 1) % this.MAPS.length];
-        const path = this.mapData.path;
-        path.forEach((p, i) => { if (i < path.length - 1) { const p2 = path[i+1]; const line = document.createElement('div'); line.className = 'path-cell'; line.style.left = p.x + '%'; line.style.top = p.y + '%'; if (p.x === p2.x) { line.style.width = '10px'; line.style.height = Math.abs(p2.y - p.y) + '%'; } else { line.style.height = '10px'; line.style.width = Math.abs(p2.x - p.x) + '%'; } c.appendChild(line); } });
-        for(let y=15; y<=85; y+=14) { for(let x=10; x<=90; x+=14) { let isPath=false; for(let i=0;i<path.length-1;i++){const p1=path[i],p2=path[i+1];if(p1.y===p2.y&&Math.abs(y-p1.y)<10&&x>=Math.min(p1.x,p2.x)-5&&x<=Math.max(p1.x,p2.x)+5)isPath=true;if(p1.x===p2.x&&Math.abs(x-p1.x)<10&&y>=Math.min(p1.y,p2.y)-5&&y<=Math.max(p1.y,p2.y)+5)isPath=true;} if(!isPath){const div=document.createElement('div');div.className='grid-cell';div.style.left=x+'%';div.style.top=y+'%';div.dataset.x=x;div.dataset.y=y;c.appendChild(div);}} }
-        const endP = path[path.length-1]; const endDiv = document.createElement('div'); endDiv.style.cssText = `position:absolute;left:${endP.x}%;top:${endP.y}%;width:14%;height:14%;background:#c0392b;display:flex;align-items:center;justify-content:center;border-radius:4px;transform:translate(-50%,-50%);z-index:5;font-weight:bold;`; endDiv.innerText='城'; c.appendChild(endDiv);
-    },
-    log(msg, isHero=false) { const t = document.getElementById('info-ticker'); t.innerText = msg; t.style.color = isHero ? '#f1c40f' : '#aaa'; },
-    updateUI() {
-        document.getElementById('gold').innerText = this.state.gold;
-        document.getElementById('castle-hp').innerText = Math.max(0, this.state.castleHp);
-        document.getElementById('wave-num').innerText = this.state.wave;
-        document.getElementById('max-wave').innerText = Config.wavesPerMap;
-        document.getElementById('map-name').innerText = this.mapData.name;
-        document.getElementById('recruit-btn').innerText = `招募 (${this.state.recruitCost}金)`;
-        document.getElementById('next-wave-btn').disabled = this.state.isWaveActive;
-        this.renderBench();
-    },
-    gameOver() { this.isGameOver = true; clearInterval(this.intervals.spawn); clearInterval(this.intervals.checkEnd); document.getElementById('game-over').style.display = 'flex'; }
-};
+        // --- 导出 SVG 函数 ---
+        function downloadSVG() {
+            const svgEl = document.getElementById("mapSvg");
+            const svgData = new XMLSerializer().serializeToString(svgEl);
+            const blob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"});
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement("a");
+            const startVal = document.getElementById("startStation").value.split("(")[0].trim();
+            const endVal = document.getElementById("endStation").value.split("(")[0].trim();
+            
+            a.href = url;
+            a.download = `高铁路线海报_${startVal}_${endVal}.svg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
 
-Game.init();
-</script>
+        // --- 自动化响应：绑定所有控制元素实现即时预览 ---
+        const inputs = ["startStation", "endStation", "trainNo", "trainTime", "baseColor", "highlightColor", "routeColor", "borderColor"];
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener("input", () => {
+                if (currentRegion) renderMap(geoJsonCache[currentRegion]);
+            });
+        });
+
+        // 页面初始化默认加载四川地图数据
+        window.onload = loadMapDataAndRender;
+    </script>
 </body>
 </html>
